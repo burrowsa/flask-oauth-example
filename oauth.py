@@ -1,5 +1,6 @@
 from rauth import OAuth1Service, OAuth2Service
 from flask import current_app, url_for, request, redirect, session, json
+from xml.dom.minidom import parseString
 
 
 class OAuthSignIn(object):
@@ -138,4 +139,43 @@ class GoogleSignIn(OAuthSignIn):
         name = me['name']
         email = me['email']
         profile_image_url = me['picture']
+        return social_id, name, email, profile_image_url
+
+
+class LinkedInSignIn(OAuthSignIn):
+    # https://accounts.google.com/.well-known/openid-configuration
+    def __init__(self):
+        super(LinkedInSignIn, self).__init__('linkedin')
+        self.service = OAuth2Service(
+            name='linkedin',
+            client_id=self.consumer_id,
+            client_secret=self.consumer_secret,
+            authorize_url='https://www.linkedin.com/oauth/v2/authorization',
+            access_token_url='https://www.linkedin.com/oauth/v2/accessToken',
+            base_url='https://api.linkedin.com/'
+        )
+
+    def authorize(self):
+        return redirect(self.service.get_authorize_url(
+            scope='r_basicprofile r_emailaddress',
+            response_type='code',
+            redirect_uri=self.get_callback_url())
+        )
+
+    def callback(self):
+        if 'code' not in request.args:
+            return None, None, None, None
+        oauth_session = self.service.get_auth_session(
+            data={'code': request.args['code'],
+                  'grant_type': 'authorization_code',
+                  'redirect_uri': self.get_callback_url()},
+            decoder=json.loads
+        )
+        
+        me = parseString(oauth_session.get('v1/people/~:(id,first-name,last-name,picture-url,email-address)').text)
+        social_id = '{}${}'.format(self.service.name, me.getElementsByTagName("id")[0].lastChild.data)
+        name = '{} {}'.format(me.getElementsByTagName("first-name")[0].lastChild.data,
+                              me.getElementsByTagName("last-name")[0].lastChild.data)
+        email = me.getElementsByTagName("email-address")[0].lastChild.data
+        profile_image_url = me.getElementsByTagName("picture-url")[0].lastChild.data
         return social_id, name, email, profile_image_url

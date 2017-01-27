@@ -19,6 +19,10 @@ app.config['OAUTH_CREDENTIALS'] = {
     'google': {
         'id': '',
         'secret': ''
+    },
+    'linkedin': {
+        'id': '',
+        'secret': ''
     }
 }
 
