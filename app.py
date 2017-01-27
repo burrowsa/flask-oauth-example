@@ -1,7 +1,6 @@
 from flask import Flask, redirect, url_for, render_template, flash
 from flask_sqlalchemy import SQLAlchemy
-from flask_login import LoginManager, UserMixin, login_user, logout_user,\
-    current_user
+from flask_login import LoginManager, UserMixin, login_user, logout_user, current_user
 from oauth import OAuthSignIn
 
 
@@ -16,6 +15,10 @@ app.config['OAUTH_CREDENTIALS'] = {
     'twitter': {
         'id': '3RzWQclolxWZIMq5LJqzRZPTl',
         'secret': 'm9TEd58DSEtRrZHpz2EjrV9AhsBRxKMo8m3kuIZj3zLwzwIimt'
+    },
+    'google': {
+        'id': '',
+        'secret': ''
     }
 }
 
@@ -30,11 +33,13 @@ class User(UserMixin, db.Model):
     social_id = db.Column(db.String(64), nullable=False, unique=True)
     nickname = db.Column(db.String(64), nullable=False)
     email = db.Column(db.String(64), nullable=True)
+    profile_image_url = db.Column(db.String(512), nullable=True)
+    
 
 
 @lm.user_loader
-def load_user(id):
-    return User.query.get(int(id))
+def load_user(uid):
+    return User.query.get(int(uid))
 
 
 @app.route('/')
@@ -61,13 +66,13 @@ def oauth_callback(provider):
     if not current_user.is_anonymous:
         return redirect(url_for('index'))
     oauth = OAuthSignIn.get_provider(provider)
-    social_id, username, email = oauth.callback()
+    social_id, username, email, profile_image_url = oauth.callback()
     if social_id is None:
         flash('Authentication failed.')
         return redirect(url_for('index'))
     user = User.query.filter_by(social_id=social_id).first()
     if not user:
-        user = User(social_id=social_id, nickname=username, email=email)
+        user = User(social_id=social_id, nickname=username, email=email, profile_image_url=profile_image_url)
         db.session.add(user)
         db.session.commit()
     login_user(user, True)
